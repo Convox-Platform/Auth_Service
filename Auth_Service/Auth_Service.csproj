@@ -11,13 +11,17 @@
   <ItemGroup>
     <Protobuf Include="Protos\google_auth.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\JWT.proto" GrpcServices="Server" />
-    <Protobuf Include="Protos\test.proto" GrpcServices="Server" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\*.sql" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="Dapper.Contrib" Version="2.0.78" />
+    <PackageReference Include="dbup-sqlserver" Version="7.2.0" />
     <PackageReference Include="DotNetEnv" Version="3.2.0" />
     <PackageReference Include="Google.Apis.Auth" Version="1.75.0" />
     <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />

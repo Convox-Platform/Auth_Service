@@ -117,7 +117,7 @@ namespace Auth_Service.Services
         public static (string AccessToken, string RefreshToken) JWTTokenGenerator(string email, string userId)
         {
             Env.Load();
-            var secret = Environment.GetEnvironmentVariable("JWT_secret");
+            var secret = Environment.GetEnvironmentVariable("JWT_SECRET");
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secret);
