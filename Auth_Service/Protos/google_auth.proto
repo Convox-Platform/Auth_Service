@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option csharp_namespace = "Auth_Service";
+
+package google_auth;
+
+
+service Google_auth {
+  // Sends a greeting
+  rpc LoginWithGoogle (Request) returns (AuthResponse);
+}
+
+// The request message containing the user's name.
+message Request {
+  string id_token = 1;
+}
+
+// The response message containing the greetings.
+message AuthResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+}

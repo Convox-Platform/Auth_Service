@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+
+option csharp_namespace = "Auth_Service";
+
+package JWT_Auth;
+
+// The greeting service definition.
+service JWT_Auth {
+  // Sends a greeting
+  rpc Registration (AuthData) returns (Tokens);
+  rpc Login (AuthData) returns (Tokens);
+  rpc RefreshToken (Tokens) returns (Tokens);
+}
+
+
+message AuthData{
+	string email = 1;
+	string password = 2;
+}
+
+message Tokens {
+	string access_token = 1;
+	string refresh_token = 2;
+}
+
