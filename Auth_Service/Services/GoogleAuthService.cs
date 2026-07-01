@@ -87,6 +87,13 @@ namespace Auth_Service.Services
 
                 var (AccessToken, RefreshToken) = JWTAuthService.JWTTokenGenerator(payload.Email,user.Id.ToString());
 
+                // Зберігаємо refresh-токен у БД (як у JWTAuthService.Login), інакше після
+                // перезавантаження сторінки refresh не знаходить токен і користувача викидає на логін.
+                const string insertTokenSql = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at)
+                                                VALUES (@id, @token, @expires_at);";
+                await _db.ExecuteAsync(insertTokenSql,
+                    new { id = user.Id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
+
                 return new AuthResponse { AccessToken = AccessToken, RefreshToken = RefreshToken };
 
             }
