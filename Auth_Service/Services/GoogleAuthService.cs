@@ -19,7 +19,7 @@ namespace Auth_Service.Services
             {
                 var settings = new GoogleJsonWebSignature.ValidationSettings()
                 {
-                    Audience = new[] { Environment.GetEnvironmentVariable("Google_client_id") }
+                    Audience = new[] { Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") }
                 };
                 Console.WriteLine(request.IdToken);
                 var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, settings);
@@ -107,9 +107,9 @@ namespace Auth_Service.Services
             var requestData = new Dictionary<string, string>
             {
                 { "code", code },
-                { "client_id", Environment.GetEnvironmentVariable("Google_client_id") },
-                { "client_secret", Environment.GetEnvironmentVariable("Google_client_secret") },
-                { "redirect_uri", Environment.GetEnvironmentVariable("redirect_uri") },
+                { "client_id", Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") },
+                { "client_secret", Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET") },
+                { "redirect_uri", Environment.GetEnvironmentVariable("REDIRECT_URI") },
                 { "grant_type", "authorization_code" }
             };
 
