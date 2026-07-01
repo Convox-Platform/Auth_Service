@@ -72,13 +72,16 @@ namespace Auth_Service.Services
                         "Select * From Users WHERE Id = @Id;",
                         new { Id = (long)account.User_id });
 
-                    string sql = @"SELECT * FROM JWT_tokens WHERE UserId = @Id;";
+                    string sql = @"SELECT * FROM JWT_tokens WHERE User_id = @Id;";
 
                     var token = _db.QueryFirstOrDefault<Jwt_token>(sql, new { Id = user.Id });
 
-                    string sqlDelete = @"DELETE FROM JWT_tokens WHERE Id = @Id;";
+                    if (token != null)
+                    {
+                        string sqlDelete = @"DELETE FROM JWT_tokens WHERE Id = @Id;";
 
-                    await _db.ExecuteAsync(sqlDelete, new { Id = token.Id });
+                        await _db.ExecuteAsync(sqlDelete, new { Id = token.Id });
+                    }
                    
                 }
 
