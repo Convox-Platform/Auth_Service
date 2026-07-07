@@ -126,6 +126,8 @@ namespace Auth_Service.Services
             {
                 Subject = new ClaimsIdentity(new[]
                 {
+                    // sub = userId: gateway читає саме claims.Subject (sub) і парсить як id.
+                    new Claim(JwtRegisteredClaimNames.Sub, userId),
                     new Claim(ClaimTypes.Email, email),
                     new Claim(ClaimTypes.NameIdentifier, userId)
                 }),

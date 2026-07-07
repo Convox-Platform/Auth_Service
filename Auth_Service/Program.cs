@@ -60,6 +60,8 @@ namespace Auth_Service
             }
 
             builder.Services.AddTransient<DbConnection>(sp => new SqlConnection(constr));
+            // GoogleAuthService залежить від System.Data.IDbConnection (JWTAuthService — від DbConnection).
+            builder.Services.AddTransient<IDbConnection>(sp => new SqlConnection(constr));
             builder.Services.AddTransient<IdGen.IdGenerator>(sp => new IdGen.IdGenerator(0));
             builder.Services.AddHttpClient();
 

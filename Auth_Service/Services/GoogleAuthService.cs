@@ -72,17 +72,27 @@ namespace Auth_Service.Services
                         "Select * From Users WHERE Id = @Id;",
                         new { Id = (long)account.User_id });
 
-                    string sql = @"SELECT * FROM JWT_tokens WHERE UserId = @Id;";
+                    string sql = @"SELECT * FROM JWT_tokens WHERE User_id = @Id;";
 
                     var token = _db.QueryFirstOrDefault<Jwt_token>(sql, new { Id = user.Id });
 
-                    string sqlDelete = @"DELETE FROM JWT_tokens WHERE Id = @Id;";
+                    if (token != null)
+                    {
+                        string sqlDelete = @"DELETE FROM JWT_tokens WHERE Id = @Id;";
 
-                    await _db.ExecuteAsync(sqlDelete, new { Id = token.Id });
+                        await _db.ExecuteAsync(sqlDelete, new { Id = token.Id });
+                    }
                    
                 }
 
                 var (AccessToken, RefreshToken) = JWTAuthService.JWTTokenGenerator(payload.Email,user.Id.ToString());
+
+                // Зберігаємо refresh-токен у БД (як у JWTAuthService.Login), інакше після
+                // перезавантаження сторінки refresh не знаходить токен і користувача викидає на логін.
+                const string insertTokenSql = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at)
+                                                VALUES (@id, @token, @expires_at);";
+                await _db.ExecuteAsync(insertTokenSql,
+                    new { id = user.Id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
 
                 return new AuthResponse { AccessToken = AccessToken, RefreshToken = RefreshToken };
 
