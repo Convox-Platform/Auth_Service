@@ -6,17 +6,31 @@ using System.Data;
 using IdGen;
 using Google.Apis.Json;
 using System.Text.Json;
+using System.Data.Common;
+using System.Net.Http;
+using Grpc.Net.Client;
+using Grpc.Net.Client.Web;
+using User_Service;
+using System.Net;
 namespace Auth_Service.Services
 {
     public class GoogleAuthService:Google_auth.Google_authBase
     {
-        private readonly IDbConnection _db;
+        private readonly DbConnection _db;
         private readonly HttpClient _client;
         private readonly IdGenerator _generator;
+        private readonly string _user_service_url;
+        private readonly string _secret;
         public override async Task<AuthResponse> LoginWithGoogle(Request request, ServerCallContext context)
         {
             try
             {
+
+                var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb,new SocketsHttpHandler());
+
+                var channel = GrpcChannel.ForAddress(_user_service_url, new GrpcChannelOptions { HttpHandler = handler });
+                var client = new UserService.UserServiceClient(channel);
+
                 var settings = new GoogleJsonWebSignature.ValidationSettings()
                 {
                     Audience = new[] { Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") }
@@ -32,7 +46,8 @@ namespace Auth_Service.Services
                     "SELECT * FROM OAuth_accounts WHERE Provider = 'google' AND Id = @id",
                     new { id = payload.Subject });
                 User? user;
-
+                
+                
                 
                 if (account == null)
                 {
@@ -54,7 +69,13 @@ namespace Auth_Service.Services
                             Scope = payload.Scope
                         }
                     };
-                    
+
+                    var userServiceRequest = new CreateUserProfileRequest{
+                        UserId = id,
+                        Img = payload.Picture,
+                        Username = $"{payload.GivenName?.ToLower()}_{payload.FamilyName?.ToLower()}",
+                        DisplayName = $"{payload.GivenName} {payload.FamilyName}"
+                    };
 
                     await _db.ExecuteAsync(insertUserSql, new { Id = user.Id, user.Email }, transaction);
 
@@ -64,6 +85,9 @@ namespace Auth_Service.Services
                     await _db.ExecuteAsync(insertAccountSql, new {Id = user.OAuth_account.Id, user.OAuth_account.Provider,
                         User_id = user.Id, user.OAuth_account.Scope }, transaction);
                     
+                    var resp = await client.CreateUserProfileAsync(userServiceRequest);
+
+                    Console.WriteLine("resp from another service  " + resp.Status);
                     transaction.Commit();
                 }
                 else
@@ -72,7 +96,7 @@ namespace Auth_Service.Services
                         "Select * From Users WHERE Id = @Id;",
                         new { Id = (long)account.User_id });
 
-                    string sql = @"SELECT * FROM JWT_tokens WHERE UserId = @Id;";
+                    string sql = @"SELECT * FROM JWT_tokens WHERE User_Id = @Id;";
 
                     var token = _db.QueryFirstOrDefault<Jwt_token>(sql, new { Id = user.Id });
 
@@ -82,8 +106,13 @@ namespace Auth_Service.Services
                    
                 }
 
-                var (AccessToken, RefreshToken) = JWTAuthService.JWTTokenGenerator(payload.Email,user.Id.ToString());
+                var (AccessToken, RefreshToken) = JWTAuthService.JWTTokenGenerator(payload.Email,user.Id.ToString(), _secret);
 
+                var sql2 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
+                await _db.ExecuteAsync(sql2, new { id = user.Id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
+                Console.WriteLine("Token: " + AccessToken);
+
+                await channel.ShutdownAsync();
                 return new AuthResponse { AccessToken = AccessToken, RefreshToken = RefreshToken };
 
             }
@@ -93,11 +122,14 @@ namespace Auth_Service.Services
             }
         }
 
-        public GoogleAuthService(IDbConnection db, HttpClient client, IdGenerator generator)
+        public GoogleAuthService(DbConnection db, HttpClient client, IdGenerator generator, [FromKeyedServices("user_service_url")] string url,
+            [FromKeyedServices("secret_key")] string secret)
         {
             _db = db;
             _client = client;
             _generator = generator;
+            _user_service_url = url;
+            _secret = secret;
         }
         
         public async Task<GoogleTokenResponse> CodeForTokenAsync(string code)

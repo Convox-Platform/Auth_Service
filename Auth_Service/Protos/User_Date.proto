@@ -1,0 +1,17 @@
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+
+option csharp_namespace = "UserDate_Service";
+
+package UserDate;
+
+// The greeting service definition.
+service UserDate {
+  // Sends a greeting
+  rpc GetUserId (google.protobuf.Empty) returns (UserDateResponse);
+}
+
+message UserDateResponse {
+	string user_id = 1;
+}
+

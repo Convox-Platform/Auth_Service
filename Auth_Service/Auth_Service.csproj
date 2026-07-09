@@ -10,7 +10,9 @@
 
   <ItemGroup>
     <Protobuf Include="Protos\google_auth.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\User_Date.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\JWT.proto" GrpcServices="Server" />
+	<Protobuf Include="Protos\user.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>
@@ -27,7 +29,9 @@
     <PackageReference Include="Grpc.AspNetCore" Version="2.57.0" />
     <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.80.0" />
     <PackageReference Include="Grpc.AspNetCore.Web" Version="2.80.0" />
+    <PackageReference Include="Grpc.Net.Client.Web" Version="2.80.0" />
     <PackageReference Include="IdGen" Version="3.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.28" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.2" />
     <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.22.1" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.19.1" />

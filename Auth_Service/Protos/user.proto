@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+option csharp_namespace = "User_Service";
+
+package UserService;
+
+service UserService {
+  rpc GetUserProfile (GetUserProfileRequest) returns (UserProfileResponse);
+  rpc CreateUserProfile (CreateUserProfileRequest) returns (UserProfileResponse);
+  rpc UpdateUserProfile (UpdateUserProfileRequest) returns (UserProfileResponse);
+  rpc SearchUsers (SearchUsersRequest) returns (SearchUsersResponse);
+
+  //rpc SetOnlineStatus (SetOnlineStatusRequest) returns (OnlineStatusResponse);
+  //rpc GetOnlineStatus (GetOnlineStatusRequest) returns (OnlineStatusResponse);
+}
+
+message GetUserProfileRequest {
+  int64 user_id = 1;
+}
+
+message CreateUserProfileRequest {
+  int64 user_id = 1;
+  string username = 2;
+  string display_name = 3;
+  string img = 4;
+}
+
+message UpdateUserProfileRequest {
+  int64 user_id = 1;
+  string username = 2;
+  string display_name = 3;
+  string description = 4;
+  string img = 5;
+  string birth_date = 6;
+  string status = 7;
+}
+
+message SearchUsersRequest {
+  string query = 1;
+  int32 limit = 2;
+}
+
+message SetOnlineStatusRequest {
+  int64 user_id = 1;
+  bool online = 2;
+}
+
+message GetOnlineStatusRequest {
+  int64 user_id = 1;
+}
+
+message UserProfileResponse {
+  int64 id = 1;
+  string username = 2;
+  string display_name = 3;
+  string description = 4;
+  string img = 5;
+  string birth_date = 6;
+  string status = 7;
+  int64 status_updated_at = 8;
+}
+
+message SearchUsersResponse {
+  repeated UserProfileResponse users = 1;
+}
+
+message OnlineStatusResponse {
+  int64 user_id = 1;
+  bool online = 2;
+}

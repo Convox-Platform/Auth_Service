@@ -16,6 +16,8 @@ namespace Auth_Service.Services
     {
         private readonly DbConnection _db;
         private readonly IdGenerator _generator;
+        private readonly string _user_service_url;
+        private readonly  string? _secret;
 
         public override async Task<Tokens> Registration(AuthData request, ServerCallContext context)
         {
@@ -35,7 +37,7 @@ namespace Auth_Service.Services
             string sql2 = @"INSERT INTO Users (Id, Email, PasswordHash) VALUES (@id, @email, @password)";
             await _db.ExecuteAsync(sql2, new { id = id, email = request.Email, password = passwordHash });
 
-            var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, id.ToString());
+            var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, id.ToString(),_secret);
 
             string sql3 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
             await _db.ExecuteAsync(sql3, new { id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
@@ -60,7 +62,7 @@ namespace Auth_Service.Services
                 throw new RpcException(new Status(StatusCode.PermissionDenied, "Wrong password"));
             }
 
-            var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, user.Id.ToString());
+            var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, user.Id.ToString(),_secret);
 
             var sql2 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
             await _db.ExecuteAsync(sql2, new { id = user.Id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
@@ -98,7 +100,7 @@ namespace Auth_Service.Services
 
             string email = tokenRecord.Email;
             string userId = tokenRecord.User_id;
-            var (AccessToken, RefreshToken) = JWTTokenGenerator(email, userId);
+            var (AccessToken, RefreshToken) = JWTTokenGenerator(email, userId,_secret);
 
             string sql2 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
             await _db.ExecuteAsync(sql2, new { id = userId, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
@@ -108,16 +110,18 @@ namespace Auth_Service.Services
         }
 
 
-        public JWTAuthService(DbConnection db, IdGenerator generator)
+        public JWTAuthService(DbConnection db, IdGenerator generator,
+            [FromKeyedServices("user_service_url")] string url, [FromKeyedServices("secret_key")] string secret)
         {
             _db = db;
             _generator = generator;
+            _user_service_url = url;
+            _secret = secret;
         }
 
-        public static (string AccessToken, string RefreshToken) JWTTokenGenerator(string email, string userId)
+        public static (string AccessToken, string RefreshToken) JWTTokenGenerator(string email, string userId, string secret )
         {
-            Env.Load();
-            var secret = Environment.GetEnvironmentVariable("JWT_SECRET");
+            
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(secret);
