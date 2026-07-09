@@ -2,6 +2,8 @@
 using Dapper;
 using DotNetEnv;
 using Grpc.Core;
+using Grpc.Net.Client;
+using Grpc.Net.Client.Web;
 using IdGen;
 using Microsoft.IdentityModel.Tokens;
 using System.Data.Common;
@@ -9,6 +11,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using User_Service;
 using static BCrypt.Net.BCrypt;
 namespace Auth_Service.Services
 {
@@ -21,6 +24,11 @@ namespace Auth_Service.Services
 
         public override async Task<Tokens> Registration(AuthData request, ServerCallContext context)
         {
+            var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler());
+
+            var channel = GrpcChannel.ForAddress(_user_service_url, new GrpcChannelOptions { HttpHandler = handler });
+            var client = new UserService.UserServiceClient(channel);
+
             string sql = @"SELECT * FROM Users WHERE Email = @email";
 
             var user = _db.QueryFirstOrDefault<User>(sql, new { email = request.Email});
@@ -37,12 +45,20 @@ namespace Auth_Service.Services
             string sql2 = @"INSERT INTO Users (Id, Email, PasswordHash) VALUES (@id, @email, @password)";
             await _db.ExecuteAsync(sql2, new { id = id, email = request.Email, password = passwordHash });
 
+            var userprofile  = await client.CreateUserProfileAsync(new CreateUserProfileRequest { 
+                UserId = id, Username = $"{request.Email.Split('@')[0]}", DisplayName= request.Email.Split('@')[0] });
+
+            if (userprofile == null)
+            {
+                throw new RpcException(new Status(StatusCode.NotFound, "User could not be created"));
+            }
+
             var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, id.ToString(),_secret);
 
             string sql3 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
             await _db.ExecuteAsync(sql3, new { id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
 
-
+            await channel.ShutdownAsync();
             return new Tokens { AccessToken = AccessToken, RefreshToken = RefreshToken };
 
         }
