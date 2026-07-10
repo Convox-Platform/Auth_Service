@@ -8,8 +8,8 @@ using Google.Apis.Auth.OAuth2.Requests;
 using Google.Apis.Auth.OAuth2.Responses;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.SqlClient;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using System.Data;
 using System.Data.Common;
 using System.Reflection;
@@ -35,18 +35,18 @@ namespace Auth_Service
                 reflectionEnabled = reflectionEnabledOverride;
             }
 
-            //EnsureDatabase.For.SqlDatabase(constr);
-            //var upgrader = DeployChanges.To
-            //    .SqlDatabase(constr)
-            //    .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
-            //    .LogToConsole()
-            //    .Build();
+            EnsureDatabase.For.PostgresqlDatabase(constr);
+            var upgrader = DeployChanges.To
+                .PostgresqlDatabase(constr)
+                .WithScriptsEmbeddedInAssembly(Assembly.GetExecutingAssembly())
+                .LogToConsole()
+                .Build();
 
-            //var migrationResult = upgrader.PerformUpgrade();
-            //if (!migrationResult.Successful)
-            //{
-            //    Console.WriteLine(migrationResult.Error);
-            //}
+            var migrationResult = upgrader.PerformUpgrade();
+            if (!migrationResult.Successful)
+            {
+                Console.WriteLine(migrationResult.Error);
+            }
 
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddCors(option =>
@@ -81,7 +81,7 @@ namespace Auth_Service
                 builder.Services.AddGrpcReflection();
             }
 
-            builder.Services.AddTransient<DbConnection>(sp => new SqlConnection(constr));
+            builder.Services.AddTransient<DbConnection>(sp => new NpgsqlConnection(constr));
             builder.Services.AddTransient<IdGen.IdGenerator>(sp => new IdGen.IdGenerator(0));
             builder.Services.AddKeyedTransient<string>("user_service_url",(sp,key) => user_service_url ?? "http://localhost:5001");
             builder.Services.AddKeyedTransient<string>("secret_key",(sp,key) => secret ?? "secret");

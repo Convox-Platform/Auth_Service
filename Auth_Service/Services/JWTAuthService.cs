@@ -29,9 +29,9 @@ namespace Auth_Service.Services
             var channel = GrpcChannel.ForAddress(_user_service_url, new GrpcChannelOptions { HttpHandler = handler });
             var client = new UserService.UserServiceClient(channel);
 
-            string sql = @"SELECT * FROM Users WHERE Email = @email";
+            string sql = @"SELECT * FROM Users WHERE LOWER(Email) = LOWER(@email)";
 
-            var user = _db.QueryFirstOrDefault<User>(sql, new { email = request.Email});
+            var user = await _db.QueryFirstOrDefaultAsync<User>(sql, new { email = request.Email});
 
             if (user != null)
             {
@@ -65,9 +65,9 @@ namespace Auth_Service.Services
 
         public override async Task<Tokens> Login(AuthData request, ServerCallContext context)
         {
-           string sql = @"SELECT * FROM Users WHERE Email = @email";
+            string sql = @"SELECT * FROM Users WHERE LOWER(Email) = LOWER(@email)";
 
-            var user = _db.QueryFirstOrDefault<User>(sql, new { email = request.Email });
+            var user = await _db.QueryFirstOrDefaultAsync<User>(sql, new { email = request.Email });
             if (user == null)
             {
                 throw new RpcException(new Status(StatusCode.NotFound, "User not found"));
@@ -97,13 +97,13 @@ namespace Auth_Service.Services
             WHERE t.RefreshToken = @token";
 
             var tokenRecord = _db.QueryFirstOrDefault <dynamic>(selectSql, new { token = request.RefreshToken });
-            Console.WriteLine("Token Record: " + tokenRecord.RefreshToken);
+            Console.WriteLine("Token Record: " + tokenRecord.refreshToken);
             if (tokenRecord == null)
             {
                 throw new RpcException(new Status(StatusCode.NotFound, "Token not found"));
             }
 
-            if (tokenRecord.Expires_at < DateTime.UtcNow)
+            if (tokenRecord.expires_at < DateTime.UtcNow)
             {
                 sqlDelete = @"DELETE FROM JWT_tokens WHERE RefreshToken = @token";
                 await _db.ExecuteAsync(sqlDelete, new { token = request.RefreshToken });
@@ -114,8 +114,8 @@ namespace Auth_Service.Services
             sqlDelete = @"DELETE FROM JWT_tokens WHERE RefreshToken = @token";
             await _db.ExecuteAsync(sqlDelete, new { token = request.RefreshToken });
 
-            string email = tokenRecord.Email;
-            string userId = tokenRecord.User_id;
+            string email = tokenRecord.email;
+            string userId = tokenRecord.user_id;
             var (AccessToken, RefreshToken) = JWTTokenGenerator(email, userId,_secret);
 
             string sql2 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";

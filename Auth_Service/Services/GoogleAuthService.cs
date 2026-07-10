@@ -64,7 +64,7 @@ namespace Auth_Service.Services
                         Email = payload.Email,
                         OAuth_account = new OAuth_account
                         {
-                            Provider = "Google",
+                            Provider = "google",
                             Id = payload.Subject,
                             Scope = payload.Scope
                         }
