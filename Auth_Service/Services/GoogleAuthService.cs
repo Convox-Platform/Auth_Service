@@ -26,7 +26,10 @@ namespace Auth_Service.Services
             try
             {
 
-                var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb,new SocketsHttpHandler());
+                var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler())
+                {
+                    HttpVersion = HttpVersion.Version11
+                };
 
                 var channel = GrpcChannel.ForAddress(_user_service_url, new GrpcChannelOptions { HttpHandler = handler });
                 var client = new UserService.UserServiceClient(channel);

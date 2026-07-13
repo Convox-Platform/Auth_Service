@@ -24,7 +24,10 @@ namespace Auth_Service.Services
 
         public override async Task<Tokens> Registration(AuthData request, ServerCallContext context)
         {
-            var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler());
+            var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler())
+            {
+                HttpVersion = System.Net.HttpVersion.Version11
+            };
 
             var channel = GrpcChannel.ForAddress(_user_service_url, new GrpcChannelOptions { HttpHandler = handler });
             var client = new UserService.UserServiceClient(channel);
@@ -146,6 +149,7 @@ namespace Auth_Service.Services
             {
                 Subject = new ClaimsIdentity(new[]
                 {
+                    new Claim(JwtRegisteredClaimNames.Sub, userId),
                     new Claim(ClaimTypes.Email, email),
                     new Claim(ClaimTypes.NameIdentifier, userId)
                 }),
