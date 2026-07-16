@@ -106,7 +106,7 @@ namespace Auth_Service.Services
                    
                 }
 
-                var (AccessToken, RefreshToken) = JWTAuthService.JWTTokenGenerator(payload.Email,user.Id.ToString(), _secret);
+                var (AccessToken, RefreshToken) = JWTAuthService.JWTTokenGenerator(payload.Email,user.Id, _secret);
 
                 var sql2 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
                 await _db.ExecuteAsync(sql2, new { id = user.Id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });

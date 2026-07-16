@@ -9,9 +9,14 @@ package UserDate;
 service UserDate {
   // Sends a greeting
   rpc GetUserId (google.protobuf.Empty) returns (UserDateResponse);
+  rpc IsUserExist (UserDateResponse) returns (UserDateBoolResponse);
 }
 
 message UserDateResponse {
 	string user_id = 1;
+}
+
+message UserDateBoolResponse {
+	bool is_exist = 1;
 }
 

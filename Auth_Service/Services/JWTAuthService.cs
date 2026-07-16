@@ -53,7 +53,7 @@ namespace Auth_Service.Services
                 throw new RpcException(new Status(StatusCode.NotFound, "User could not be created"));
             }
 
-            var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, id.ToString(),_secret);
+            var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, id,_secret);
 
             string sql3 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
             await _db.ExecuteAsync(sql3, new { id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
@@ -78,7 +78,7 @@ namespace Auth_Service.Services
                 throw new RpcException(new Status(StatusCode.PermissionDenied, "Wrong password"));
             }
 
-            var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, user.Id.ToString(),_secret);
+            var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, user.Id,_secret);
 
             var sql2 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
             await _db.ExecuteAsync(sql2, new { id = user.Id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
@@ -94,28 +94,30 @@ namespace Auth_Service.Services
             SELECT t.*, u.Email 
             FROM JWT_tokens t
             JOIN Users u ON t.User_id = u.Id
-            WHERE t.RefreshToken = @token";
+            WHERE t.refreshtoken = @token";
 
             var tokenRecord = _db.QueryFirstOrDefault <dynamic>(selectSql, new { token = request.RefreshToken });
-            Console.WriteLine("Token Record: " + tokenRecord.refreshToken);
+
             if (tokenRecord == null)
             {
                 throw new RpcException(new Status(StatusCode.NotFound, "Token not found"));
             }
 
+            Console.WriteLine("Token Record: " + tokenRecord.refreshtoken);
+            
             if (tokenRecord.expires_at < DateTime.UtcNow)
             {
-                sqlDelete = @"DELETE FROM JWT_tokens WHERE RefreshToken = @token";
+                sqlDelete = @"DELETE FROM JWT_tokens WHERE refreshtoken = @token";
                 await _db.ExecuteAsync(sqlDelete, new { token = request.RefreshToken });
 
                 throw new RpcException(new Status(StatusCode.Unauthenticated, "Token expired"));
             }
 
-            sqlDelete = @"DELETE FROM JWT_tokens WHERE RefreshToken = @token";
+            sqlDelete = @"DELETE FROM JWT_tokens WHERE refreshtoken = @token";
             await _db.ExecuteAsync(sqlDelete, new { token = request.RefreshToken });
 
             string email = tokenRecord.email;
-            string userId = tokenRecord.user_id;
+            long userId =Convert.ToInt64(tokenRecord.user_id);
             var (AccessToken, RefreshToken) = JWTTokenGenerator(email, userId,_secret);
 
             string sql2 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
@@ -135,7 +137,7 @@ namespace Auth_Service.Services
             _secret = secret;
         }
 
-        public static (string AccessToken, string RefreshToken) JWTTokenGenerator(string email, string userId, string secret )
+        public static (string AccessToken, string RefreshToken) JWTTokenGenerator(string email, long userId, string secret )
         {
             
 
@@ -147,7 +149,7 @@ namespace Auth_Service.Services
                 Subject = new ClaimsIdentity(new[]
                 {
                     new Claim(ClaimTypes.Email, email),
-                    new Claim(ClaimTypes.NameIdentifier, userId)
+                    new Claim(ClaimTypes.NameIdentifier, userId.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddHours(1),
                 SigningCredentials = new SigningCredentials(

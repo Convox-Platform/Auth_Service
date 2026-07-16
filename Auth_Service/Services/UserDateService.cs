@@ -15,5 +15,9 @@ namespace Auth_Service.Services
             var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
             return new UserDateResponse { UserId = userId };
         }
+
+        [Authorize]
+        override 
     }
+
 }
