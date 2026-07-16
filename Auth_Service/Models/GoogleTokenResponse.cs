@@ -1,12 +1,32 @@
-﻿namespace Auth_Service.Models
+namespace Auth_Service.Models
 {
     public class GoogleTokenResponse
     {
-        public string? access_token { get; set; }
-        public string? refresh_token { get; set; }
-        public string? Id_token { get; set; }
+        [JsonPropertyName("access_token")]
+        public string? AccessToken { get; set; }
 
-        public int expires_in { get; set; }
-        public string? scope { get; set; }
+        [JsonPropertyName("refresh_token")]
+        public string? RefreshToken { get; set; }
+
+        [JsonPropertyName("id_token")]
+        public string? IdToken { get; set; }
+
+        [JsonPropertyName("expires_in")]
+        public int ExpiresIn { get; set; }
+
+        [JsonPropertyName("scope")]
+        public string? Scope { get; set; }
+
+        [JsonPropertyName("token_type")]
+        public string? TokenType { get; set; }
+    }
+
+    public class GoogleOAuthErrorResponse
+    {
+        [JsonPropertyName("error")]
+        public string? Error { get; set; }
+
+        [JsonPropertyName("error_description")]
+        public string? ErrorDescription { get; set; }
     }
 }
