@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Auth_Service.Models
 {
     public class GoogleTokenResponse

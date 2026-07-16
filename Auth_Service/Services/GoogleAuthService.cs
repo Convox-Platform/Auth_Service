@@ -269,7 +269,7 @@ namespace Auth_Service.Services
 
             var (accessToken, refreshToken) = JWTAuthService.JWTTokenGenerator(
                 user.Email!,
-                user.Id.ToString(),
+                user.Id,
                 _jwtSecret);
 
             await _db.ExecuteAsync(
