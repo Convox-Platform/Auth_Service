@@ -22,9 +22,21 @@ namespace Auth_Service
         public static void Main(string[] args)
         {
             Env.Load();
-            string? GCI = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID")?? throw new ArgumentNullException("GOOGLE_CLIENT_ID not found");
+            var googleClientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID")
+                ?? throw new ArgumentNullException("GOOGLE_CLIENT_ID not found");
+            var googleClientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET")
+                ?? throw new ArgumentNullException("GOOGLE_CLIENT_SECRET not found");
+            var googleRedirectUris = Environment.GetEnvironmentVariable("GOOGLE_REDIRECT_URIS")
+                ?? Environment.GetEnvironmentVariable("REDIRECT_URI")
+                ?? throw new ArgumentNullException("GOOGLE_REDIRECT_URIS or REDIRECT_URI not found");
             var constr = Environment.GetEnvironmentVariable("CONNECTION_STRING")?? throw new ArgumentNullException("CONNECTION_STRING not found");
-            var origin = Environment.GetEnvironmentVariable("ORIGIN") ?? throw new ArgumentNullException("ORIGIN not found");
+            var allowedOrigins = Environment.GetEnvironmentVariable("ORIGINS")
+                ?? Environment.GetEnvironmentVariable("ORIGIN")
+                ?? throw new ArgumentNullException("ORIGINS or ORIGIN not found");
+            var origins = allowedOrigins
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (origins.Length == 0)
+                throw new ArgumentException("At least one allowed origin must be configured.");
             var user_service_url = Environment.GetEnvironmentVariable("USER_SERVICE_URL") ?? throw new ArgumentNullException("USER_SERVICE_URL not found");
             var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? throw new ArgumentNullException("JWT_SECRET not found");
             var reflectionEnabled = true;
@@ -53,7 +65,7 @@ namespace Auth_Service
             {
                 option.AddDefaultPolicy(policy =>
                 {
-                    policy.WithOrigins(origin ?? "http://localhost:5173").AllowAnyHeader().AllowAnyMethod()
+                    policy.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()
                     .WithExposedHeaders("Grpc-Status", "Grpc-Message", "Grpc-Encoding", "Grpc-Accept-Encoding");
                 });
             });
@@ -85,6 +97,10 @@ namespace Auth_Service
             builder.Services.AddTransient<IdGen.IdGenerator>(sp => new IdGen.IdGenerator(0));
             builder.Services.AddKeyedTransient<string>("user_service_url",(sp,key) => user_service_url ?? "http://localhost:5001");
             builder.Services.AddKeyedTransient<string>("secret_key",(sp,key) => secret ?? "secret");
+            builder.Services.AddKeyedTransient<string>("google_client_id", (sp, key) => googleClientId);
+            builder.Services.AddKeyedTransient<string>("google_client_secret", (sp, key) => googleClientSecret);
+            builder.Services.AddKeyedTransient<string>("google_redirect_uris", (sp, key) => googleRedirectUris);
+            builder.Services.AddKeyedTransient<string>("allowed_origins", (sp, key) => allowedOrigins);
             builder.Services.AddHttpClient();
 
             var app = builder.Build();
