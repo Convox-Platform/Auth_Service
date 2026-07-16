@@ -6,13 +6,28 @@ package google_auth;
 
 
 service Google_auth {
-  // Sends a greeting
+  // Legacy flow accepting an ID token directly.
   rpc LoginWithGoogle (Request) returns (AuthResponse);
+
+  // Exchanges a one-time Google authorization code on the backend.
+  rpc LoginWithGoogleCode (GoogleCodeRequest) returns (AuthResponse);
 }
 
 // The request message containing the user's name.
 message Request {
   string id_token = 1;
+}
+
+message GoogleCodeRequest {
+  string code = 1;
+  // Random value (at least 32 characters) sent to Google. Send the original
+  // browser value separately as x-convox-oauth-state metadata or the
+  // convox_google_oauth_state cookie so the backend can validate CSRF state.
+  string state = 2;
+  // Must exactly match one of the backend-configured redirect URIs.
+  string redirect_uri = 3;
+  // Optional PKCE verifier when the authorization request used PKCE.
+  string code_verifier = 4;
 }
 
 // The response message containing the greetings.
