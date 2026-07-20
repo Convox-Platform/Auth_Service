@@ -32,10 +32,8 @@ namespace Auth_Service.Services
         private readonly IdGenerator _generator;
         private readonly string _userServiceUrl;
         private readonly string _jwtSecret;
-        private readonly string _googleClientId;
-        private readonly string _googleClientSecret;
+        private readonly GoogleOAuthClientRegistry _googleOAuthClients;
         private readonly HashSet<string> _allowedOrigins;
-        private readonly HashSet<string> _allowedRedirectUris;
 
         public GoogleAuthService(
             DbConnection db,
@@ -43,9 +41,7 @@ namespace Auth_Service.Services
             IdGenerator generator,
             [FromKeyedServices("user_service_url")] string userServiceUrl,
             [FromKeyedServices("secret_key")] string jwtSecret,
-            [FromKeyedServices("google_client_id")] string googleClientId,
-            [FromKeyedServices("google_client_secret")] string googleClientSecret,
-            [FromKeyedServices("google_redirect_uris")] string redirectUris,
+            GoogleOAuthClientRegistry googleOAuthClients,
             [FromKeyedServices("allowed_origins")] string allowedOrigins)
         {
             _db = db;
@@ -53,9 +49,7 @@ namespace Auth_Service.Services
             _generator = generator;
             _userServiceUrl = userServiceUrl;
             _jwtSecret = jwtSecret;
-            _googleClientId = googleClientId;
-            _googleClientSecret = googleClientSecret;
-            _allowedRedirectUris = ParseList(redirectUris);
+            _googleOAuthClients = googleOAuthClients;
             _allowedOrigins = ParseList(allowedOrigins, NormalizeOrigin);
         }
 
@@ -66,7 +60,7 @@ namespace Auth_Service.Services
                 if (string.IsNullOrWhiteSpace(request.IdToken))
                     throw RpcError(StatusCode.InvalidArgument, "Google ID token is required.");
 
-                var payload = await ValidateGoogleIdTokenAsync(request.IdToken);
+                var payload = await ValidateGoogleIdTokenAsync(request.IdToken, _googleOAuthClients.WebClient);
                 return await LoginWithPayloadAsync(payload, payload.Scope, context.CancellationToken);
             }
             catch (RpcException)
@@ -94,17 +88,18 @@ namespace Auth_Service.Services
                 if (string.IsNullOrWhiteSpace(request.Code))
                     throw RpcError(StatusCode.InvalidArgument, "Google authorization code is required.");
 
-                var redirectUri = ValidateBrowserRequest(request, context);
+                var (redirectUri, googleClient) = ValidateBrowserRequest(request, context);
                 var tokenResponse = await CodeForTokenAsync(
                     request.Code,
                     redirectUri,
                     string.IsNullOrWhiteSpace(request.CodeVerifier) ? null : request.CodeVerifier,
+                    googleClient,
                     context.CancellationToken);
 
                 if (string.IsNullOrWhiteSpace(tokenResponse.IdToken))
                     throw RpcError(StatusCode.Unauthenticated, "Google did not return an ID token.");
 
-                var payload = await ValidateGoogleIdTokenAsync(tokenResponse.IdToken);
+                var payload = await ValidateGoogleIdTokenAsync(tokenResponse.IdToken, googleClient);
                 return await LoginWithPayloadAsync(payload, tokenResponse.Scope, context.CancellationToken);
             }
             catch (RpcException)
@@ -139,26 +134,29 @@ namespace Auth_Service.Services
 
         public Task<GoogleTokenResponse> CodeForTokenAsync(string code)
         {
-            var redirectUri = _allowedRedirectUris.FirstOrDefault()
+            var redirectUri = _googleOAuthClients.WebClient.RedirectUris.FirstOrDefault()
                 ?? throw RpcError(StatusCode.FailedPrecondition, "No Google redirect URI is configured.");
 
-            return CodeForTokenAsync(code, redirectUri, null, CancellationToken.None);
+            return CodeForTokenAsync(code, redirectUri, null, _googleOAuthClients.WebClient, CancellationToken.None);
         }
 
         public async Task<GoogleTokenResponse> CodeForTokenAsync(
             string code,
             string redirectUri,
             string? codeVerifier,
+            GoogleOAuthClientConfiguration googleClient,
             CancellationToken cancellationToken)
         {
             var requestData = new Dictionary<string, string>
             {
                 ["code"] = code,
-                ["client_id"] = _googleClientId,
-                ["client_secret"] = _googleClientSecret,
+                ["client_id"] = googleClient.ClientId,
                 ["redirect_uri"] = redirectUri,
                 ["grant_type"] = "authorization_code"
             };
+
+            if (!string.IsNullOrWhiteSpace(googleClient.ClientSecret))
+                requestData["client_secret"] = googleClient.ClientSecret;
 
             if (!string.IsNullOrWhiteSpace(codeVerifier))
                 requestData["code_verifier"] = codeVerifier;
@@ -174,19 +172,21 @@ namespace Auth_Service.Services
                 ?? throw new JsonException("Empty Google token response.");
         }
 
-        private async Task<GoogleJsonWebSignature.Payload> ValidateGoogleIdTokenAsync(string idToken)
+        private async Task<GoogleJsonWebSignature.Payload> ValidateGoogleIdTokenAsync(
+            string idToken,
+            GoogleOAuthClientConfiguration googleClient)
         {
             var payload = await GoogleJsonWebSignature.ValidateAsync(
                 idToken,
                 new GoogleJsonWebSignature.ValidationSettings
                 {
-                    Audience = new[] { _googleClientId },
+                    Audience = new[] { googleClient.ClientId },
                     ExpirationTimeClockTolerance = TimeSpan.Zero
                 });
 
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             if (!GoogleIssuers.Contains(payload.Issuer)
-                || !AudienceMatches(payload.Audience, _googleClientId)
+                || !AudienceMatches(payload.Audience, googleClient.ClientId)
                 || payload.ExpirationTimeSeconds is null
                 || payload.ExpirationTimeSeconds <= now)
             {
@@ -285,7 +285,9 @@ namespace Auth_Service.Services
             return new AuthResponse { AccessToken = accessToken, RefreshToken = refreshToken };
         }
 
-        private string ValidateBrowserRequest(GoogleCodeRequest request, ServerCallContext context)
+        private (string RedirectUri, GoogleOAuthClientConfiguration GoogleClient) ValidateBrowserRequest(
+            GoogleCodeRequest request,
+            ServerCallContext context)
         {
             var httpContext = context.GetHttpContext();
             var origin = NormalizeOrigin(httpContext.Request.Headers.Origin.ToString());
@@ -295,14 +297,14 @@ namespace Auth_Service.Services
             var redirectUri = request.RedirectUri;
             if (string.IsNullOrWhiteSpace(redirectUri))
             {
-                if (_allowedRedirectUris.Count != 1)
+                if (_googleOAuthClients.WebClient.RedirectUris.Count != 1)
                     throw RpcError(StatusCode.InvalidArgument, "Redirect URI is required.");
-                redirectUri = _allowedRedirectUris.Single();
+                redirectUri = _googleOAuthClients.WebClient.RedirectUris.Single();
             }
 
             if (!Uri.TryCreate(redirectUri, UriKind.Absolute, out var parsedRedirect)
                 || !string.IsNullOrEmpty(parsedRedirect.Fragment)
-                || !_allowedRedirectUris.Contains(redirectUri))
+                || !_googleOAuthClients.TryGetByRedirectUri(redirectUri, out var googleClient))
             {
                 throw RpcError(StatusCode.PermissionDenied, "Redirect URI is not allowed.");
             }
@@ -317,7 +319,7 @@ namespace Auth_Service.Services
             if (httpContext.Request.Cookies.ContainsKey(OAuthStateCookie))
                 httpContext.Response.Cookies.Delete(OAuthStateCookie);
 
-            return redirectUri;
+            return (redirectUri, googleClient);
         }
 
         private static bool IsValidState(string actual, string? expected)

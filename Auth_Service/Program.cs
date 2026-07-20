@@ -33,10 +33,20 @@ namespace Auth_Service
             var allowedOrigins = Environment.GetEnvironmentVariable("ORIGINS")
                 ?? Environment.GetEnvironmentVariable("ORIGIN")
                 ?? throw new ArgumentNullException("ORIGINS or ORIGIN not found");
+            var desktopOrigin = Environment.GetEnvironmentVariable("DESKTOP_ORIGIN");
+            if (!string.IsNullOrWhiteSpace(desktopOrigin))
+                allowedOrigins = string.Join(',', allowedOrigins, desktopOrigin);
             var origins = allowedOrigins
                 .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (origins.Length == 0)
                 throw new ArgumentException("At least one allowed origin must be configured.");
+            var googleOAuthClients = GoogleOAuthClientRegistry.Create(
+                googleClientId,
+                googleClientSecret,
+                googleRedirectUris,
+                Environment.GetEnvironmentVariable("GOOGLE_DESKTOP_CLIENT_ID"),
+                Environment.GetEnvironmentVariable("GOOGLE_DESKTOP_CLIENT_SECRET"),
+                Environment.GetEnvironmentVariable("GOOGLE_DESKTOP_REDIRECT_URI"));
             var user_service_url = Environment.GetEnvironmentVariable("USER_SERVICE_URL") ?? throw new ArgumentNullException("USER_SERVICE_URL not found");
             var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? throw new ArgumentNullException("JWT_SECRET not found");
             var reflectionEnabled = true;
@@ -97,9 +107,7 @@ namespace Auth_Service
             builder.Services.AddTransient<IdGen.IdGenerator>(sp => new IdGen.IdGenerator(0));
             builder.Services.AddKeyedTransient<string>("user_service_url",(sp,key) => user_service_url ?? "http://localhost:5001");
             builder.Services.AddKeyedTransient<string>("secret_key",(sp,key) => secret ?? "secret");
-            builder.Services.AddKeyedTransient<string>("google_client_id", (sp, key) => googleClientId);
-            builder.Services.AddKeyedTransient<string>("google_client_secret", (sp, key) => googleClientSecret);
-            builder.Services.AddKeyedTransient<string>("google_redirect_uris", (sp, key) => googleRedirectUris);
+            builder.Services.AddSingleton(googleOAuthClients);
             builder.Services.AddKeyedTransient<string>("allowed_origins", (sp, key) => allowedOrigins);
             builder.Services.AddHttpClient();
 
