@@ -1,6 +1,9 @@
 ﻿using Dapper;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
+using Grpc.Net.Client;
+using Grpc.Net.Client.Web;
+using Mail.V1;
 using Microsoft.AspNetCore.Authorization;
 using System.Data.Common;
 using System.Security.Claims;
@@ -30,6 +33,42 @@ namespace Auth_Service.Services
             bool exist = await _db.ExecuteScalarAsync<bool>(sql, new { Id = request.UserId });
 
             return new UserDateBoolResponse { IsExist = exist };
+        }
+
+        [Authorize]
+        public override async Task<UserDateDeleteResponse> DeleteUser(UserDateResponse request, ServerCallContext context)
+        {
+            var grpcWebHandler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler());
+            using var channel = GrpcChannel.ForAddress("https://localhost:5001", new GrpcChannelOptions { HttpHandler = grpcWebHandler });
+
+            var userid = context.GetHttpContext().User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (userid == request.UserId)
+            {
+                var client = new MailService.MailServiceClient(channel);
+                var sql = """
+                    UPDATE users 
+                    SET delete_at = now() + interval '1 day' 
+                    WHERE id = @Id;
+                    """;// 1 день только на время, а вообще должно быть 14 дней
+
+                await _db.ExecuteAsync(sql, new { Id = request.UserId });
+
+                var sqlUser = """
+                    SELECT email FROM users WHERE id = @Id;
+                    """;
+                var email = await _db.QueryFirstOrDefaultAsync<string>(sqlUser, new { Id = request.UserId });
+
+                await client.SendEmailAsync(new SendEmailRequest { RecipientEmail = email, Body = "Your account will be deleted in 14 days" });
+
+                return new UserDateDeleteResponse { Result = true };
+            }
+
+
+
+            return new UserDateDeleteResponse{ Result = false };
+
+            
         }
 
         public UserDateService(DbConnection db) => _db = db;

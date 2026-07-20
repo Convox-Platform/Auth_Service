@@ -4,5 +4,5 @@
     RefreshToken TEXT            NOT NULL,
     Expires_at   TIMESTAMP       NOT NULL,
     User_id      BIGINT          NULL,
-    CONSTRAINT FK_JwtTokens_Users FOREIGN KEY (User_id) REFERENCES Users (Id)
+    CONSTRAINT FK_JwtTokens_Users FOREIGN KEY (User_id) REFERENCES Users (Id) ON DELETE CASCADE
 );

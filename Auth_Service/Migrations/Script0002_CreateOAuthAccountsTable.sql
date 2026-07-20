@@ -7,5 +7,5 @@
     Expires_at    TIMESTAMP      NULL,
     Scope         TEXT           NULL,
     User_id       BIGINT         NULL,
-    CONSTRAINT FK_OAuthAccounts_Users FOREIGN KEY (User_id) REFERENCES Users (Id)
+    CONSTRAINT FK_OAuthAccounts_Users FOREIGN KEY (User_id) REFERENCES Users (Id) ON DELETE CASCADE
 );

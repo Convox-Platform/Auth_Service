@@ -11,6 +11,9 @@ service JWT_Auth {
   rpc Registration (AuthData) returns (Tokens);
   rpc Login (AuthData) returns (Tokens);
   rpc RefreshToken (Tokens) returns (Tokens);
+
+  //rpc ChangePassword (AuthData) returns (Tokens);
+  
 }
 
 

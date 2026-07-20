@@ -76,6 +76,12 @@ namespace Auth_Service.Services
                 throw new RpcException(new Status(StatusCode.NotFound, "User not found"));
             }
 
+            if (user.DeletedAt != null)
+            {
+                string sqlUpdate = @"UPDATE Users SET Deleted_At = NULL WHERE Id = @id";
+                await _db.ExecuteAsync(sqlUpdate, new { id = user.Id });
+            }
+
             if (!Verify(request.Password, user.PasswordHash))
             {
                 throw new RpcException(new Status(StatusCode.PermissionDenied, "Wrong password"));

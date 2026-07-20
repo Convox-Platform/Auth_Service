@@ -261,6 +261,12 @@ namespace Auth_Service.Services
 
                 if (user is null)
                     throw RpcError(StatusCode.Internal, "Google account is not linked to a user.");
+
+                if (user.DeletedAt != null)
+                {
+                    string sqlUpdate = @"UPDATE Users SET Deleted_At = NULL WHERE Id = @id";
+                    await _db.ExecuteAsync(sqlUpdate, new { id = user.Id });
+                }
             }
 
             await _db.ExecuteAsync(

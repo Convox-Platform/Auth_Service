@@ -10,6 +10,9 @@ service UserDate {
   // Sends a greeting
   rpc GetUserId (google.protobuf.Empty) returns (UserDateResponse);
   rpc IsUserExist (UserDateResponse) returns (UserDateBoolResponse);
+
+  rpc DeleteUser (UserDateResponse) returns (UserDateDeleteResponse);
+  rpc DeleteCancel (google.protobuf.Empty) returns (UserDateDeleteResponse);
 }
 
 message UserDateResponse {
@@ -18,5 +21,9 @@ message UserDateResponse {
 
 message UserDateBoolResponse {
 	bool is_exist = 1;
+}
+
+message UserDateDeleteResponse {
+	bool result = 1;
 }
 

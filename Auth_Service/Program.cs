@@ -38,6 +38,8 @@ namespace Auth_Service
             if (origins.Length == 0)
                 throw new ArgumentException("At least one allowed origin must be configured.");
             var user_service_url = Environment.GetEnvironmentVariable("USER_SERVICE_URL") ?? throw new ArgumentNullException("USER_SERVICE_URL not found");
+            var mail_service_url = Environment.GetEnvironmentVariable("MAIL_SERVICE_URL") ?? throw new ArgumentNullException("MAIL_SERVICE_URL not found");
+
             var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? throw new ArgumentNullException("JWT_SECRET not found");
             var reflectionEnabled = true;
 
@@ -95,12 +97,15 @@ namespace Auth_Service
 
             builder.Services.AddTransient<DbConnection>(sp => new NpgsqlConnection(constr));
             builder.Services.AddTransient<IdGen.IdGenerator>(sp => new IdGen.IdGenerator(0));
-            builder.Services.AddKeyedTransient<string>("user_service_url",(sp,key) => user_service_url ?? "http://localhost:5001");
-            builder.Services.AddKeyedTransient<string>("secret_key",(sp,key) => secret ?? "secret");
-            builder.Services.AddKeyedTransient<string>("google_client_id", (sp, key) => googleClientId);
-            builder.Services.AddKeyedTransient<string>("google_client_secret", (sp, key) => googleClientSecret);
-            builder.Services.AddKeyedTransient<string>("google_redirect_uris", (sp, key) => googleRedirectUris);
-            builder.Services.AddKeyedTransient<string>("allowed_origins", (sp, key) => allowedOrigins);
+            
+            builder.Services.AddKeyedSingleton<string>("user_service_url",(sp,key) => user_service_url ?? "http://localhost:5001");
+            builder.Services.AddKeyedSingleton<string>("mail_service_url", (sp, key) => mail_service_url ?? "http://localhost:5002");
+
+            builder.Services.AddKeyedSingleton<string>("secret_key",(sp,key) => secret ?? "secret");
+            builder.Services.AddKeyedSingleton<string>("google_client_id", (sp, key) => googleClientId);
+            builder.Services.AddKeyedSingleton<string>("google_client_secret", (sp, key) => googleClientSecret);
+            builder.Services.AddKeyedSingleton<string>("google_redirect_uris", (sp, key) => googleRedirectUris);
+            builder.Services.AddKeyedSingleton<string>("allowed_origins", (sp, key) => allowedOrigins);
             builder.Services.AddHttpClient();
 
             var app = builder.Build();

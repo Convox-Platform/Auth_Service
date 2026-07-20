@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package mail.v1;
+
+// MailService accepts email messages for delivery.
+service MailService {
+  rpc SendEmail(SendEmailRequest) returns (SendEmailResponse);
+}
+
+message SendEmailRequest {
+  // Recipient email address.
+  string recipient_email = 1;
+
+  // Email body encoded as UTF-8 text.
+  string body = 2;
+}
+
+// A successful gRPC status means that the message was accepted for delivery.
+message SendEmailResponse {}

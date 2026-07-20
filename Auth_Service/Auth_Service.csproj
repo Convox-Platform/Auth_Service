@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -12,7 +12,9 @@
     <Protobuf Include="Protos\google_auth.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\User_Date.proto" GrpcServices="Server" />
     <Protobuf Include="Protos\JWT.proto" GrpcServices="Server" />
+	  
 	<Protobuf Include="Protos\user.proto" GrpcServices="Client" />
+	<Protobuf Include="Protos\mail.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>
