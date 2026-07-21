@@ -1,3 +1,4 @@
+using Auth_Service.BackgroundServices;
 using Auth_Service.Models;
 using Auth_Service.Services;
 using Dapper;
@@ -87,6 +88,7 @@ namespace Auth_Service
                 };
             });
 
+           
 
             // Add services to the container.
             builder.Services.AddGrpc();
@@ -107,6 +109,9 @@ namespace Auth_Service
             builder.Services.AddKeyedSingleton<string>("google_redirect_uris", (sp, key) => googleRedirectUris);
             builder.Services.AddKeyedSingleton<string>("allowed_origins", (sp, key) => allowedOrigins);
             builder.Services.AddHttpClient();
+
+
+            builder.Services.AddHostedService<UserFullDeleteService>();
 
             var app = builder.Build();
 

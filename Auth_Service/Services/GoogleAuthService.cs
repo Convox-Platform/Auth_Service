@@ -269,9 +269,7 @@ namespace Auth_Service.Services
                 }
             }
 
-            await _db.ExecuteAsync(
-                "DELETE FROM JWT_tokens WHERE User_id = @Id;",
-                new { user.Id });
+            
 
             var (accessToken, refreshToken) = JWTAuthService.JWTTokenGenerator(
                 user.Email!,
