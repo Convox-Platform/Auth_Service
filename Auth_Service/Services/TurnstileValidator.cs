@@ -7,11 +7,18 @@ public sealed class TurnstileValidator
 {
     private const string SiteverifyUrl =
         "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+    private static readonly HashSet<string> TestSecretKeys =
+    [
+        "1x0000000000000000000000000000000AA",
+        "2x0000000000000000000000000000000AA",
+        "3x0000000000000000000000000000000AA",
+    ];
 
     private readonly HttpClient _httpClient;
     private readonly ILogger<TurnstileValidator> _logger;
     private readonly string _secretKey;
     private readonly HashSet<string> _expectedHostnames;
+    private readonly bool _isTestSecretKey;
 
     public TurnstileValidator(
         HttpClient httpClient,
@@ -22,6 +29,7 @@ public sealed class TurnstileValidator
         _httpClient = httpClient;
         _logger = logger;
         _secretKey = secretKey;
+        _isTestSecretKey = TestSecretKeys.Contains(secretKey);
         _expectedHostnames = expectedHostnames
             .Split(
                 new[] { ',', ';' },
@@ -80,7 +88,8 @@ public sealed class TurnstileValidator
                 return TurnstileValidationResult.Invalid(result.ErrorCodes);
             }
 
-            if (!string.Equals(
+            if (!_isTestSecretKey &&
+                !string.Equals(
                     result.Action,
                     expectedAction,
                     StringComparison.Ordinal))
@@ -92,7 +101,8 @@ public sealed class TurnstileValidator
                 return TurnstileValidationResult.Invalid("action-mismatch");
             }
 
-            if (_expectedHostnames.Count > 0 &&
+            if (!_isTestSecretKey &&
+                _expectedHostnames.Count > 0 &&
                 !_expectedHostnames.Contains(result.Hostname))
             {
                 _logger.LogWarning(

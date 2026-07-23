@@ -8,6 +8,7 @@ service UserService {
   rpc GetUserProfile (GetUserProfileRequest) returns (UserProfileResponse);
   rpc CreateUserProfile (CreateUserProfileRequest) returns (UserProfileResponse);
   rpc UpdateUserProfile (UpdateUserProfileRequest) returns (UserProfileResponse);
+  rpc CheckUsernameAvailability (CheckUsernameAvailabilityRequest) returns (CheckUsernameAvailabilityResponse);
   rpc SearchUsers (SearchUsersRequest) returns (SearchUsersResponse);
 
   //rpc SetOnlineStatus (SetOnlineStatusRequest) returns (OnlineStatusResponse);
@@ -33,6 +34,14 @@ message UpdateUserProfileRequest {
   string img = 5;
   string birth_date = 6;
   string status = 7;
+}
+
+message CheckUsernameAvailabilityRequest {
+  string username = 1;
+}
+
+message CheckUsernameAvailabilityResponse {
+  bool available = 1;
 }
 
 message SearchUsersRequest {
