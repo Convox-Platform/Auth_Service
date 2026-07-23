@@ -20,10 +20,24 @@ namespace Auth_Service.Services
         private readonly DbConnection _db;
         private readonly IdGenerator _generator;
         private readonly string _user_service_url;
-        private readonly  string? _secret;
+        private readonly string _secret;
+        private readonly TurnstileValidator _turnstileValidator;
+        private readonly bool _botCheckEnabled;
 
         public override async Task<Tokens> Registration(AuthData request, ServerCallContext context)
         {
+            await ValidateTurnstileAsync(
+                request.TurnstileToken,
+                "register",
+                context.CancellationToken);
+
+            if (!request.AcceptedTerms)
+            {
+                throw new RpcException(new Status(
+                    StatusCode.InvalidArgument,
+                    "Terms of Service and Privacy Policy must be accepted."));
+            }
+
             var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler())
             {
                 HttpVersion = System.Net.HttpVersion.Version11
@@ -48,8 +62,18 @@ namespace Auth_Service.Services
             string sql2 = @"INSERT INTO Users (Id, Email, PasswordHash) VALUES (@id, @email, @password)";
             await _db.ExecuteAsync(sql2, new { id = id, email = request.Email, password = passwordHash });
 
-            var userprofile  = await client.CreateUserProfileAsync(new CreateUserProfileRequest { 
-                UserId = id, Username = $"{request.Email.Split('@')[0]}", DisplayName= request.Email.Split('@')[0] });
+            var username = string.IsNullOrWhiteSpace(request.Username)
+                ? request.Email.Split('@')[0]
+                : request.Username.Trim();
+            var displayName = string.IsNullOrWhiteSpace(request.DisplayName)
+                ? username
+                : request.DisplayName.Trim();
+
+            var userprofile  = await client.CreateUserProfileAsync(new CreateUserProfileRequest {
+                UserId = id,
+                Username = username,
+                DisplayName = displayName,
+            });
 
             if (userprofile == null)
             {
@@ -57,6 +81,25 @@ namespace Auth_Service.Services
             }
 
             var (AccessToken, RefreshToken) = JWTTokenGenerator(request.Email, id,_secret);
+
+            if (!string.IsNullOrWhiteSpace(request.BirthDate))
+            {
+                var headers = new Metadata
+                {
+                    { "Authorization", $"Bearer {AccessToken}" },
+                };
+                await client.UpdateUserProfileAsync(
+                    new UpdateUserProfileRequest
+                    {
+                        UserId = id,
+                        Username = userprofile.Username,
+                        DisplayName = userprofile.DisplayName,
+                        BirthDate = request.BirthDate,
+                        Status = "new user",
+                    },
+                    headers,
+                    cancellationToken: context.CancellationToken);
+            }
 
             string sql3 = @"INSERT INTO JWT_tokens (User_id, RefreshToken, Expires_at) VALUES (@id, @token, @expires_at)";
             await _db.ExecuteAsync(sql3, new { id, token = RefreshToken, expires_at = DateTime.UtcNow.AddDays(29) });
@@ -68,6 +111,11 @@ namespace Auth_Service.Services
 
         public override async Task<Tokens> Login(AuthData request, ServerCallContext context)
         {
+            await ValidateTurnstileAsync(
+                request.TurnstileToken,
+                "login",
+                context.CancellationToken);
+
             string sql = @"SELECT * FROM Users WHERE LOWER(Email) = LOWER(@email)";
 
             var user = await _db.QueryFirstOrDefaultAsync<User>(sql, new { email = request.Email });
@@ -138,12 +186,47 @@ namespace Auth_Service.Services
 
 
         public JWTAuthService(DbConnection db, IdGenerator generator,
-            [FromKeyedServices("user_service_url")] string url, [FromKeyedServices("secret_key")] string secret)
+            [FromKeyedServices("user_service_url")] string url,
+            [FromKeyedServices("secret_key")] string secret,
+            [FromKeyedServices("enable_bot_check")] string botCheckEnabled,
+            TurnstileValidator turnstileValidator)
         {
             _db = db;
             _generator = generator;
             _user_service_url = url;
             _secret = secret;
+            _botCheckEnabled = bool.Parse(botCheckEnabled);
+            _turnstileValidator = turnstileValidator;
+        }
+
+        private async Task ValidateTurnstileAsync(
+            string token,
+            string action,
+            CancellationToken cancellationToken)
+        {
+            if (!_botCheckEnabled)
+            {
+                return;
+            }
+
+            var result = await _turnstileValidator.ValidateAsync(
+                token,
+                action,
+                cancellationToken);
+
+            if (!result.IsAvailable)
+            {
+                throw new RpcException(new Status(
+                    StatusCode.Unavailable,
+                    "Human verification is temporarily unavailable."));
+            }
+
+            if (!result.IsValid)
+            {
+                throw new RpcException(new Status(
+                    StatusCode.FailedPrecondition,
+                    "Human verification failed."));
+            }
         }
 
         public static (string AccessToken, string RefreshToken) JWTTokenGenerator(string email, long userId, string secret )

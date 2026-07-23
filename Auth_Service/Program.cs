@@ -40,6 +40,16 @@ namespace Auth_Service
                 throw new ArgumentException("At least one allowed origin must be configured.");
             var user_service_url = Environment.GetEnvironmentVariable("USER_SERVICE_URL") ?? throw new ArgumentNullException("USER_SERVICE_URL not found");
             var mail_service_url = Environment.GetEnvironmentVariable("MAIL_SERVICE_URL") ?? throw new ArgumentNullException("MAIL_SERVICE_URL not found");
+            var enableBotCheck = !bool.TryParse(
+                    Environment.GetEnvironmentVariable("ENABLE_BOT_CHECK"),
+                    out var enableBotCheckOverride)
+                || enableBotCheckOverride;
+            var turnstileSecretKey =
+                Environment.GetEnvironmentVariable("TURNSTILE_SECRET_KEY");
+            if (enableBotCheck && string.IsNullOrWhiteSpace(turnstileSecretKey))
+                throw new ArgumentNullException("TURNSTILE_SECRET_KEY not found");
+            var turnstileExpectedHostnames =
+                Environment.GetEnvironmentVariable("TURNSTILE_EXPECTED_HOSTNAMES") ?? "";
 
             var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? throw new ArgumentNullException("JWT_SECRET not found");
             var reflectionEnabled = true;
@@ -108,7 +118,20 @@ namespace Auth_Service
             builder.Services.AddKeyedSingleton<string>("google_client_secret", (sp, key) => googleClientSecret);
             builder.Services.AddKeyedSingleton<string>("google_redirect_uris", (sp, key) => googleRedirectUris);
             builder.Services.AddKeyedSingleton<string>("allowed_origins", (sp, key) => allowedOrigins);
+            builder.Services.AddKeyedSingleton<string>(
+                "turnstile_secret_key",
+                (sp, key) => turnstileSecretKey ?? "");
+            builder.Services.AddKeyedSingleton<string>(
+                "turnstile_expected_hostnames",
+                (sp, key) => turnstileExpectedHostnames);
+            builder.Services.AddKeyedSingleton<string>(
+                "enable_bot_check",
+                (sp, key) => enableBotCheck.ToString());
             builder.Services.AddHttpClient();
+            builder.Services.AddHttpClient<TurnstileValidator>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(8);
+            });
 
 
             builder.Services.AddHostedService<UserFullDeleteService>();

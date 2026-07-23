@@ -20,6 +20,11 @@ service JWT_Auth {
 message AuthData{
 	string email = 1;
 	string password = 2;
+	string turnstile_token = 3;
+	string display_name = 4;
+	string username = 5;
+	string birth_date = 6;
+	bool accepted_terms = 7;
 }
 
 message Tokens {
