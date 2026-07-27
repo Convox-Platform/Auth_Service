@@ -13,6 +13,12 @@ service UserDate {
 
   rpc DeleteUser (UserDateResponse) returns (UserDateDeleteResponse);
   rpc DeleteCancel (google.protobuf.Empty) returns (UserDateDeleteResponse);
+
+  rpc CheckPassword (PasswordReqest) returns (UserDateBoolResponse);
+  rpc ChangePassword (google.protobuf.Empty) returns (UserDateBoolResponse);
+  rpc CheckChangePasswordCode (PasswordCodeReqest) returns (UserDateBoolResponse);
+
+  rpc AddPasswordToAccount (PasswordReqest) returns (UserDateBoolResponse);
 }
 
 message UserDateResponse {
@@ -27,3 +33,12 @@ message UserDateDeleteResponse {
 	bool result = 1;
 }
 
+message PasswordReqest {
+	int64 user_id = 1;
+	string password = 2;
+}
+
+message PasswordCodeReqest {
+	int64 user_id = 1;
+	string code = 2;
+}

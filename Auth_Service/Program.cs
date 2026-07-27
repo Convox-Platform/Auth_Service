@@ -107,6 +107,9 @@ namespace Auth_Service
                 builder.Services.AddGrpcReflection();
             }
 
+            builder.Services.AddMemoryCache();
+            builder.Services.AddSingleton<ConfirmationStore>();
+
             builder.Services.AddTransient<DbConnection>(sp => new NpgsqlConnection(constr));
             builder.Services.AddTransient<IdGen.IdGenerator>(sp => new IdGen.IdGenerator(0));
             

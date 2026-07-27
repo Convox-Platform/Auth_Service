@@ -1,4 +1,6 @@
-﻿using Dapper;
+﻿using Auth_Service.Models;
+using BCrypt.Net;
+using Dapper;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 using Grpc.Net.Client;
@@ -14,6 +16,9 @@ namespace Auth_Service.Services
     public class UserDateService: UserDate.UserDateBase
     {
         private readonly DbConnection _db;
+        private ConfirmationStore _confirmationStore;
+        private readonly string _mailServiceUrl;
+
         [Authorize]
         public override async Task<UserDateResponse> GetUserId(Empty request, ServerCallContext context)
         {
@@ -71,7 +76,58 @@ namespace Auth_Service.Services
             
         }
 
-        public UserDateService(DbConnection db) => _db = db;
+        [Authorize]
+        public override async Task<UserDateBoolResponse> CheckPassword(PasswordReqest request, ServerCallContext context)
+        {
+            
+            var sql = "SELECT * FROM users WHERE id = @id";
+
+            if (request.Password == null) 
+                throw new RpcException(new Status(StatusCode.InvalidArgument, "Password is null"));
+
+            var user = await _db.QueryFirstOrDefaultAsync<User>(sql, new { id = request.UserId });
+
+            if (BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash)) 
+                return new UserDateBoolResponse { IsExist = true };
+
+            return new UserDateBoolResponse { IsExist = false };
+        }
+
+        [Authorize]
+        public override async Task<UserDateBoolResponse> ChangePassword(PasswordReqest request, ServerCallContext context)
+        {
+            var UserId = Convert.ToInt64( context.GetHttpContext().User.FindFirstValue(ClaimTypes.NameIdentifier));
+
+            var sqlEmail = "SELECT email FROM users WHERE id = @id";
+            string email = await _db.QueryFirstOrDefaultAsync<string>(sqlEmail, new { id = UserId });
+
+            string code = Random.Shared.Next(100000, 999999).ToString("D8");
+
+            var Handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler());
+            var channel = GrpcChannel.ForAddress(_mailServiceUrl, new GrpcChannelOptions { HttpHandler = Handler });
+
+            var client = new MailService.MailServiceClient(channel);
+
+            await client.SendEmailAsync(new SendEmailRequest { RecipientEmail = email,Body = $"Your verification code is {code}" });
+
+            _confirmationStore.Create(UserId,code);
+
+            return new UserDateBoolResponse { IsExist = true }; 
+        }
+        override 
+
+        [Authorize]
+        public override Task<UserDateBoolResponse> CheckChangePasswordCode(PasswordCodeReqest request, ServerCallContext context)
+        {
+            return base.CheckChangePasswordCode(request, context);
+        }
+
+        public UserDateService(DbConnection db, ConfirmationStore confirmationStore, [FromKeyedServices("mail_service_url")] string mailServiceUrl)
+        {
+            _db = db;
+            _confirmationStore = confirmationStore;
+            _mailServiceUrl = mailServiceUrl;
+        }
     }
 
 }
