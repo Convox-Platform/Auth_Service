@@ -22,7 +22,7 @@ namespace Auth_Service.Services
         public override async Task<UserDateResponse> GetUserId(Empty request, ServerCallContext context)
         {
             var httpContext = context.GetHttpContext();
-            var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userId = Convert.ToInt64( httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier));
             return new UserDateResponse { UserId = userId };
         }
         public override async Task<UserDateBoolResponse> IsUserExist(UserDateResponse request, ServerCallContext context)
@@ -43,9 +43,11 @@ namespace Auth_Service.Services
         public override async Task<UserDateDeleteResponse> DeleteUser(UserDateResponse request, ServerCallContext context)
         {
             var grpcWebHandler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler());
-            using var channel = GrpcChannel.ForAddress("https://localhost:5001", new GrpcChannelOptions { HttpHandler = grpcWebHandler });
+            using var channel = GrpcChannel.ForAddress(_mailServiceUrl, new GrpcChannelOptions { HttpHandler = grpcWebHandler });
 
-            var userid = context.GetHttpContext().User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userid = Convert.ToInt64(context.GetHttpContext().User.FindFirstValue(ClaimTypes.NameIdentifier));
+
+            Console.WriteLine($"context userId: {userid} request userId: {request.UserId}");
 
             if (userid == request.UserId)
             {
@@ -136,7 +138,7 @@ namespace Auth_Service.Services
 
             var newPassHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-            string sqlUpdate = "UPDATE users SET password_hash = @hash WHERE Id = @id";
+            string sqlUpdate = "UPDATE users SET passwordhash = @hash WHERE Id = @id";
             await _db.ExecuteAsync(sqlUpdate, new { hash = newPassHash, Id = user.Id });
 
 
@@ -159,7 +161,7 @@ namespace Auth_Service.Services
 
             var newPassHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
 
-            string sqlUpdate = "UPDATE users SET password_hash = @hash WHERE id = @id";
+            string sqlUpdate = "UPDATE users SET passwordhash = @hash WHERE id = @id";
             await _db.ExecuteAsync(sqlUpdate, new { hash = newPassHash, id = request.UserId });
 
             return new  UserDateBoolResponse { IsExist = true };
@@ -188,7 +190,7 @@ namespace Auth_Service.Services
             if (!isExist)
                 throw new RpcException(new Status(StatusCode.PermissionDenied, "User has no OAuth accounts"));
 
-            string sqlUpdate = "UPDATE users SET password_hash = @hash WHERE id = @id";
+            string sqlUpdate = "UPDATE users SET passwordhash = @hash WHERE id = @id";
             var hash = BCrypt.Net.BCrypt.HashPassword(request.Password);
             await _db.ExecuteAsync(sqlUpdate, new { hash = hash, id = request.UserId });
 

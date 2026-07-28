@@ -23,7 +23,7 @@ service UserDate {
 }
 
 message UserDateResponse {
-	string user_id = 1;
+	int64 user_id = 1;
 }
 
 message UserDateBoolResponse {
