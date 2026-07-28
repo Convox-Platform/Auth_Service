@@ -1,5 +1,4 @@
 ﻿using Auth_Service.Models;
-using BCrypt.Net;
 using Dapper;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -79,6 +78,13 @@ namespace Auth_Service.Services
         [Authorize]
         public override async Task<UserDateBoolResponse> CheckPassword(PasswordReqest request, ServerCallContext context)
         {
+            var userId =Convert.ToInt64( context.GetHttpContext().User.FindFirstValue(ClaimTypes.NameIdentifier));
+            if (userId > 0)
+            {
+                if (request.UserId != userId)
+                    throw new RpcException(new Status(StatusCode.PermissionDenied, "You can't change password for other account"));
+            }
+            
             
             var sql = "SELECT * FROM users WHERE id = @id";
 
@@ -93,14 +99,9 @@ namespace Auth_Service.Services
             return new UserDateBoolResponse { IsExist = false };
         }
 
-        [Authorize]
-        public override async Task<UserDateBoolResponse> ChangePassword(PasswordReqest request, ServerCallContext context)
+        public override async Task<OperIdResponce> ChangeForgotPassword(ChangeForgotPasswordReqest request, ServerCallContext context)
         {
-            var UserId = Convert.ToInt64( context.GetHttpContext().User.FindFirstValue(ClaimTypes.NameIdentifier));
-
-            var sqlEmail = "SELECT email FROM users WHERE id = @id";
-            string email = await _db.QueryFirstOrDefaultAsync<string>(sqlEmail, new { id = UserId });
-
+            
             string code = Random.Shared.Next(100000, 999999).ToString("D8");
 
             var Handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler());
@@ -108,18 +109,92 @@ namespace Auth_Service.Services
 
             var client = new MailService.MailServiceClient(channel);
 
-            await client.SendEmailAsync(new SendEmailRequest { RecipientEmail = email,Body = $"Your verification code is {code}" });
+            await client.SendEmailAsync(new SendEmailRequest { RecipientEmail = request.Email, Body = $"Your verification code is {code}" });
 
-            _confirmationStore.Create(UserId,code);
+            var operationId = _confirmationStore.CreateWithEmail(request.Email, code);// запись в кеш
 
-            return new UserDateBoolResponse { IsExist = true }; 
+            return new OperIdResponce { OperId = operationId };
         }
-        override 
+
+        public override async Task<UserDateBoolResponse> CheckChangePasswordCode(PasswordCodeReqest request, ServerCallContext context)
+        {
+            _confirmationStore.TryGet(request.OperId, out var confirmation);
+
+
+            if (confirmation == null)
+                throw new RpcException(new Status(StatusCode.NotFound, "Confirmation not found"));
+
+            if (confirmation.Code != request.Code)
+                throw new RpcException(new Status(StatusCode.PermissionDenied, "Wrong code"));
+
+            string sql = "SELECT * FROM users WHERE email = @email";
+            var user = await _db.QueryFirstOrDefaultAsync<User>(sql, new { email = confirmation.Email });
+
+            var PasswordCheck = await this.CheckPassword(new PasswordReqest { Password = request.Password, UserId = user.Id }, context);
+            if (PasswordCheck.IsExist) // если пароль совпадает
+                throw new RpcException(new Status(StatusCode.PermissionDenied, "Password is the same as before"));
+
+            var newPassHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
+            string sqlUpdate = "UPDATE users SET password_hash = @hash WHERE Id = @id";
+            await _db.ExecuteAsync(sqlUpdate, new { hash = newPassHash, Id = user.Id });
+
+
+            return new UserDateBoolResponse { IsExist = true };
+
+        }
 
         [Authorize]
-        public override Task<UserDateBoolResponse> CheckChangePasswordCode(PasswordCodeReqest request, ServerCallContext context)
+        public override async Task<UserDateBoolResponse> ChangePassword(ChangePasswordReqest request, ServerCallContext context)
         {
-            return base.CheckChangePasswordCode(request, context);
+            long UserId = Convert.ToInt64(context.GetHttpContext().User.FindFirstValue(ClaimTypes.NameIdentifier));
+            if (request.UserId != UserId)
+                throw new RpcException(new Status(StatusCode.PermissionDenied, "You can't change password for other account"));
+
+
+            var PasswordCheck = await this.CheckPassword(new PasswordReqest { Password = request.Password, UserId = request.UserId }, context);
+
+            if (!PasswordCheck.IsExist)
+                throw new RpcException(new Status(StatusCode.PermissionDenied, "Wrong password"));
+
+            var newPassHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+
+            string sqlUpdate = "UPDATE users SET password_hash = @hash WHERE id = @id";
+            await _db.ExecuteAsync(sqlUpdate, new { hash = newPassHash, id = request.UserId });
+
+            return new  UserDateBoolResponse { IsExist = true };
+
+           
+        }
+
+        
+
+        [Authorize]
+        public override async Task<UserDateBoolResponse> AddPasswordToAccount(PasswordReqest request, ServerCallContext context)
+        {
+            long UserId = Convert.ToInt64( context.GetHttpContext().User.FindFirstValue(ClaimTypes.NameIdentifier));
+            if (request.UserId != UserId)
+                throw new RpcException(new Status(StatusCode.PermissionDenied, "You can't change password for other account"));
+
+            string sqlCheck = """
+                                SELECT EXISTS (
+                    SELECT 1
+                    FROM OAuth_accounts
+                    WHERE User_id = @UserId
+                );
+                """;
+            bool isExist = await _db.ExecuteScalarAsync<bool>(sqlCheck, new { UserId = request.UserId });
+
+            if (!isExist)
+                throw new RpcException(new Status(StatusCode.PermissionDenied, "User has no OAuth accounts"));
+
+            string sqlUpdate = "UPDATE users SET password_hash = @hash WHERE id = @id";
+            var hash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            await _db.ExecuteAsync(sqlUpdate, new { hash = hash, id = request.UserId });
+
+            return new UserDateBoolResponse { IsExist = true };
+
+
         }
 
         public UserDateService(DbConnection db, ConfirmationStore confirmationStore, [FromKeyedServices("mail_service_url")] string mailServiceUrl)

@@ -16,7 +16,26 @@ public sealed class ConfirmationStore
 
         var confirmation = new PendingConfirmation(
             id,
-            code);
+            code,
+            ""
+            );
+
+        _cache.Set(
+            operationId,
+            confirmation,
+            DateTimeOffset.UtcNow.AddMinutes(5));
+
+        return operationId;
+    }
+
+    public string CreateWithEmail(string email, string code) {
+        var operationId = Guid.NewGuid().ToString();
+
+        var confirmation = new PendingConfirmation(
+            default,
+            code,
+            email);
+
 
         _cache.Set(
             operationId,

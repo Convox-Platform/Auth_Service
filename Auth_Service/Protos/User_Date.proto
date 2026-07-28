@@ -12,10 +12,11 @@ service UserDate {
   rpc IsUserExist (UserDateResponse) returns (UserDateBoolResponse);
 
   rpc DeleteUser (UserDateResponse) returns (UserDateDeleteResponse);
-  rpc DeleteCancel (google.protobuf.Empty) returns (UserDateDeleteResponse);
-
+  
   rpc CheckPassword (PasswordReqest) returns (UserDateBoolResponse);
-  rpc ChangePassword (google.protobuf.Empty) returns (UserDateBoolResponse);
+  rpc ChangePassword (ChangePasswordReqest) returns (UserDateBoolResponse);
+
+  rpc ChangeForgotPassword (ChangeForgotPasswordReqest) returns (OperIdResponce);
   rpc CheckChangePasswordCode (PasswordCodeReqest) returns (UserDateBoolResponse);
 
   rpc AddPasswordToAccount (PasswordReqest) returns (UserDateBoolResponse);
@@ -38,7 +39,25 @@ message PasswordReqest {
 	string password = 2;
 }
 
-message PasswordCodeReqest {
-	int64 user_id = 1;
-	string code = 2;
+
+message ChangeForgotPasswordReqest {
+	string email = 1;
 }
+
+message ChangePasswordReqest {
+	int64 user_id = 1;
+	string password = 2;
+	string new_password = 3;
+}
+
+message OperIdResponce {
+	string operId = 1;
+}
+
+message PasswordCodeReqest {
+	string email = 1;
+	string code = 2;
+	string password = 3;
+	string operId = 4;
+}
+
