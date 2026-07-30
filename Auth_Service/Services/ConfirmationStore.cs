@@ -1,16 +1,24 @@
-﻿using Microsoft.Extensions.Caching.Memory;
-using Auth_Service.Models;
+﻿using Auth_Service.Models;
+using StackExchange.Redis;
+using Microsoft.AspNetCore.Http.Json;
+using System.Text.Json;
+
+using Grpc.Core;
 
 public sealed class ConfirmationStore
 {
-    private readonly IMemoryCache _cache;
+    private readonly IDatabase _cache;
 
-    public ConfirmationStore(IMemoryCache cache)
+    public ConfirmationStore(IConnectionMultiplexer cache)
     {
-        _cache = cache;
+        _cache = cache.GetDatabase();
     }
+    private static JsonSerializerOptions JsonOption = new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+    };
 
-    public string Create(long id, string code)
+    public async Task<string> Create(long id, string code)
     {
         var operationId = Guid.NewGuid().ToString();
 
@@ -20,15 +28,17 @@ public sealed class ConfirmationStore
             ""
             );
 
-        _cache.Set(
+        var json = JsonSerializer.Serialize(confirmation,JsonOption);
+
+        await _cache.StringSetAsync(
             operationId,
-            confirmation,
-            DateTimeOffset.UtcNow.AddMinutes(5));
+            json,
+            TimeSpan.FromMinutes(5));
 
         return operationId;
     }
 
-    public string CreateWithEmail(string email, string code) {
+    public async Task<string> CreateWithEmail(string email, string code) {
         var operationId = Guid.NewGuid().ToString();
 
         var confirmation = new PendingConfirmation(
@@ -36,24 +46,32 @@ public sealed class ConfirmationStore
             code,
             email);
 
+        var json = JsonSerializer.Serialize(confirmation,JsonOption);
 
-        _cache.Set(
+
+        await _cache.StringSetAsync(
             operationId,
-            confirmation,
-            DateTimeOffset.UtcNow.AddMinutes(5));
+            json,
+            TimeSpan.FromMinutes(5));
 
         return operationId;
     }
 
-    public bool TryGet(
-        string operationId,
-        out PendingConfirmation? confirmation)
+    public async Task<PendingConfirmation> TryGet(string operationId)
     {
-        return _cache.TryGetValue(operationId, out confirmation);
+        var json = await _cache.StringGetAsync(operationId);
+
+        var confirmation = json.HasValue
+            ? JsonSerializer.Deserialize<PendingConfirmation>(json,JsonOption)
+            : null;
+        if (confirmation == null)
+            throw new RpcException(new Status(StatusCode.NotFound, "Confirmation not found"));
+
+        return confirmation ;
     }
 
-    public void Remove(string operationId)
+    public async Task Remove(string operationId)
     {
-        _cache.Remove(operationId);
+        await _cache.KeyDeleteAsync(operationId);
     }
 }

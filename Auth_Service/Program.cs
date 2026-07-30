@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Npgsql;
+using StackExchange.Redis;
 using System.Data;
 using System.Data.Common;
 using System.Reflection;
@@ -53,7 +54,8 @@ namespace Auth_Service
 
             var secret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? throw new ArgumentNullException("JWT_SECRET not found");
             var reflectionEnabled = true;
-
+            
+            var redis = Environment.GetEnvironmentVariable("REDIS") ?? throw new ArgumentNullException("REDIS not found");
 
             if (bool.TryParse(Environment.GetEnvironmentVariable("GRPC_REFLECTION_ENABLED"), out var reflectionEnabledOverride))
             {
@@ -107,7 +109,8 @@ namespace Auth_Service
                 builder.Services.AddGrpcReflection();
             }
 
-            builder.Services.AddMemoryCache();
+            builder.Services.AddSingleton<IConnectionMultiplexer>(sp => ConnectionMultiplexer.Connect(redis) );
+
             builder.Services.AddSingleton<ConfirmationStore>();
 
             builder.Services.AddTransient<DbConnection>(sp => new NpgsqlConnection(constr));

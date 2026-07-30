@@ -124,7 +124,7 @@ namespace Auth_Service.Services
             var user = await _db.QueryFirstOrDefaultAsync<User>(sql, new { email = request.Email });
 
             // запись в кэш
-            var operationId = _confirmationStore.CreateWithEmail(request.Email, code);
+            var operationId = await _confirmationStore.CreateWithEmail(request.Email, code);
 
             await client.SendEmailAsync(new SendEmailRequest { RecipientEmail = request.Email, Body = await MakeMailBodyForChangePasswort(request.Email, user.Id, code) });
 
@@ -134,7 +134,7 @@ namespace Auth_Service.Services
 
         public override async Task<UserDateBoolResponse> CheckChangePasswordCode(PasswordCodeReqest request, ServerCallContext context)
         {
-            _confirmationStore.TryGet(request.OperId, out var confirmation);
+            var confirmation = await _confirmationStore.TryGet(request.OperId);
 
 
             if (confirmation == null)
