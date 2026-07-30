@@ -115,6 +115,7 @@ namespace Auth_Service
             
             builder.Services.AddKeyedSingleton<string>("user_service_url",(sp,key) => user_service_url ?? "http://localhost:5001");
             builder.Services.AddKeyedSingleton<string>("mail_service_url", (sp, key) => mail_service_url ?? "http://localhost:5002");
+            builder.Services.AddKeyedSingleton<string[]>("origins", (sp, key) => origins);
 
             builder.Services.AddKeyedSingleton<string>("secret_key",(sp,key) => secret ?? "secret");
             builder.Services.AddKeyedSingleton<string>("google_client_id", (sp, key) => googleClientId);
