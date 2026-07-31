@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using System.Data.Common;
 using System.Security.Claims;
 using User_Service;
+using System.Security.Cryptography;
 using UserDate_Service;
 
 namespace Auth_Service.Services
@@ -113,7 +114,7 @@ namespace Auth_Service.Services
         public override async Task<OperIdResponce> ChangeForgotPassword(ChangeForgotPasswordReqest request, ServerCallContext context)
         {
             
-            string code = Random.Shared.Next(1_000, 999_999).ToString("D6");
+            string code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
 
             var Handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler());
             var channel = GrpcChannel.ForAddress(_mailServiceUrl, new GrpcChannelOptions { HttpHandler = Handler });
@@ -154,6 +155,7 @@ namespace Auth_Service.Services
 
             string sqlUpdate = "UPDATE users SET passwordhash = @hash WHERE Id = @id";
             await _db.ExecuteAsync(sqlUpdate, new { hash = newPassHash, Id = user.Id });
+            _confirmationStore.Remove(request.OperId);
 
 
             return new UserDateBoolResponse { IsExist = true };
