@@ -7,6 +7,7 @@ using Grpc.Net.Client.Web;
 using Mail.V1;
 using Microsoft.AspNetCore.Authorization;
 using System.Data.Common;
+using System.Net;
 using System.Security.Claims;
 using User_Service;
 using System.Security.Cryptography;
@@ -337,7 +338,10 @@ namespace Auth_Service.Services
         {
             var tokens = JWTAuthService.JWTTokenGenerator(email, id, _secretKey);
 
-            var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb);
+            var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler())
+            {
+                HttpVersion = HttpVersion.Version11
+            };
             var channel = GrpcChannel.ForAddress(_userServiceUrl, new GrpcChannelOptions { HttpHandler = handler });
 
             var client = new UserService.UserServiceClient(channel);
