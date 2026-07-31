@@ -26,17 +26,17 @@ namespace Auth_Service.Services
 
         public override async Task<Tokens> Registration(AuthData request, ServerCallContext context)
         {
-            await ValidateTurnstileAsync(
-                request.TurnstileToken,
-                "register",
-                context.CancellationToken);
+            //await ValidateTurnstileAsync(
+            //    request.TurnstileToken,
+            //    "register",
+            //    context.CancellationToken);
 
-            if (!request.AcceptedTerms)
-            {
-                throw new RpcException(new Status(
-                    StatusCode.InvalidArgument,
-                    "Terms of Service and Privacy Policy must be accepted."));
-            }
+            //if (!request.AcceptedTerms)
+            //{
+            //    throw new RpcException(new Status(
+            //        StatusCode.InvalidArgument,
+            //        "Terms of Service and Privacy Policy must be accepted."));
+            //}
 
             var handler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, new SocketsHttpHandler())
             {

@@ -228,8 +228,11 @@ namespace Auth_Service.Services
 
         private async Task<string> MakeMailBodyForDelete()
         {
-            var big_img = await File.ReadAllBytesAsync("Images/logotype_big.png");
-            var footer_img = await File.ReadAllBytesAsync("Images/logotype_footer.png");
+            var imagesDirectory = Path.Combine(AppContext.BaseDirectory, "Images");
+            var big_img = await File.ReadAllBytesAsync(
+                Path.Combine(imagesDirectory, "logotype_big.png"));
+            var footer_img = await File.ReadAllBytesAsync(
+                Path.Combine(imagesDirectory, "logotype_footer.png"));  
 
             DateTime deleteDate = DateTime.UtcNow.AddDays(DeleteDate);
             string link = _origins[0] +"/app/login";
@@ -348,8 +351,11 @@ namespace Auth_Service.Services
             var profile = await client.GetUserProfileAsync(new GetUserProfileRequest { UserId = id }, new CallOptions(header));
             string username = profile.Username;
 
-            var big_img = await File.ReadAllBytesAsync("Images/logotype_big.png");
-            var footer_img = await File.ReadAllBytesAsync("Images/logotype_footer.png");
+            var imagesDirectory = Path.Combine(AppContext.BaseDirectory, "Images");
+            var big_img = await File.ReadAllBytesAsync(
+                Path.Combine(imagesDirectory, "logotype_big.png"));
+            var footer_img = await File.ReadAllBytesAsync(
+                Path.Combine(imagesDirectory, "logotype_footer.png"));
 
             var body = $"""
                 <!DOCTYPE html>
